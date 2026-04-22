@@ -1,0 +1,1300 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Steel Beam Calculator - Advanced Structural Analysis</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        /* Responsive Container */
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            min-height: 100vh;
+            gap: 0;
+        }
+        
+        /* Responsive Panels */
+        .left-panel {
+            flex: 1;
+            min-width: 280px;
+            background: white;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            padding: 15px;
+            height: 100vh;
+            position: sticky;
+            top: 0;
+        }
+        
+        .center-panel {
+            flex: 2;
+            min-width: 400px;
+            background: #f5f5f5;
+            overflow-y: auto;
+            padding: 15px;
+            height: 100vh;
+        }
+        
+        .right-panel {
+            flex: 1;
+            min-width: 260px;
+            background: white;
+            overflow-y: auto;
+            padding: 15px;
+            height: 100vh;
+            position: sticky;
+            top: 0;
+        }
+        
+        /* Responsive sub-frames */
+        .sub-frame {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .sub-frame h3 {
+            color: #495057;
+            margin-bottom: 12px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 5px;
+            font-size: clamp(14px, 4vw, 16px);
+        }
+        
+        .input-group {
+            margin-bottom: 12px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 4px;
+            color: #495057;
+            font-weight: 500;
+            font-size: clamp(12px, 3vw, 14px);
+        }
+        
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: clamp(12px, 3vw, 14px);
+        }
+        
+        /* Responsive Tables */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            table-layout: fixed; /* This ensures columns respect their widths */
+        }
+        
+        .data-table th, .data-table td {
+            border: 1px solid #dee2e6;
+            padding: 4px 6px;
+            text-align: left;
+        }
+        
+        .data-table th {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn {
+            padding: 4px 8px;
+            margin: 2px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: clamp(10px, 2.5vw, 12px);
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a67d8;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .add-row-btn {
+            margin-top: 8px;
+            width: 100%;
+        }
+        
+        /* Horizontal layout for diagrams - Equal Width */
+        .diagrams-horizontal {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .diagram-box {
+            flex: 1;
+            min-width: 250px;
+            background: white;
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .diagram-box h4 {
+            color: #495057;
+            margin-bottom: 8px;
+            font-size: clamp(11px, 3vw, 13px);
+            text-align: center;
+        }
+        
+        /* Canvas containers - Equal width */
+        .canvas-container {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        #freeBodyCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            cursor: pointer;
+        }
+        
+        #canvas3d {
+            width: 100%;
+            height: 100%;
+            background: #1a1a2e;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        /* Member Forces - Responsive Horizontal Grid */
+        .forces-horizontal {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 20px;
+            justify-content: space-between;
+        }
+        
+        .force-card {
+            flex: 1;
+            min-width: 85px;
+            background: white;
+            border-radius: 6px;
+            padding: 6px 3px;
+            text-align: center;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            border-left: 3px solid #667eea;
+        }
+        
+        .force-card h4 {
+            font-size: clamp(9px, 2.5vw, 11px);
+            color: #6c757d;
+            margin-bottom: 4px;
+            white-space: nowrap;
+        }
+        
+        .force-card .value {
+            font-size: clamp(12px, 3vw, 15px);
+            font-weight: bold;
+            color: #212529;
+        }
+        
+        .force-card .unit {
+            font-size: clamp(8px, 2vw, 10px);
+            color: #6c757d;
+        }
+        
+        /* Three Diagrams - Horizontal Layout */
+        .diagrams-horizontal-3 {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .diagram-container {
+            flex: 1;
+            min-width: 200px;
+            background: white;
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .diagram-container h3 {
+            color: #495057;
+            margin-bottom: 8px;
+            font-size: clamp(11px, 3vw, 13px);
+            text-align: center;
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 5px;
+        }
+        
+        .diagram-container .plotly-graph-div {
+            width: 100%;
+            height: auto;
+            min-height: 180px;
+        }
+        
+        /* Responsive Plotly Charts */
+        .js-plotly-plot, .plotly-graph-div {
+            width: 100% !important;
+        }
+        
+        .info-text {
+            font-size: clamp(9px, 2.5vw, 11px);
+            color: #6c757d;
+            margin-top: 5px;
+            text-align: center;
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        
+        /* Loading Animation */
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            100% { opacity: 1; }
+        }
+        
+        .update-animation {
+            animation: pulse 0.3s ease-in-out;
+        }
+        
+        /* Test Buttons - Responsive */
+        .test-buttons {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        
+        .test-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: clamp(9px, 2.5vw, 11px);
+        }
+        
+        .test-btn:hover {
+            background: #5a67d8;
+        }
+        
+        .status-badge {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            background: rgba(0,0,0,0.6);
+            color: #4caf50;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 8px;
+            font-family: monospace;
+            z-index: 100;
+        }
+        
+        /* Right Panel Placeholder */
+        .right-panel .placeholder {
+            text-align: center;
+            padding: 20px 10px;
+            color: #6c757d;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+        
+        .right-panel .placeholder h4 {
+            margin-bottom: 8px;
+            color: #495057;
+            font-size: clamp(12px, 3vw, 14px);
+        }
+        
+        .right-panel .placeholder p {
+            font-size: clamp(10px, 2.5vw, 12px);
+        }
+        
+        .right-panel .placeholder ul {
+            font-size: clamp(9px, 2.3vw, 11px);
+            text-align: left;
+            margin-top: 8px;
+            padding-left: 18px;
+        }
+        
+        /* Mobile Responsive Breakpoints */
+        @media (max-width: 1024px) {
+            .left-panel, .right-panel {
+                position: static;
+                height: auto;
+                max-height: 50vh;
+            }
+            
+            .center-panel {
+                height: auto;
+                max-height: none;
+            }
+            
+            .diagrams-horizontal, .diagrams-horizontal-3 {
+                flex-direction: column;
+            }
+            
+            .diagram-box, .diagram-container {
+                min-width: 100%;
+            }
+            
+            .forces-horizontal {
+                flex-wrap: wrap;
+            }
+            
+            .force-card {
+                min-width: calc(33.33% - 8px);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .left-panel, .center-panel, .right-panel {
+                min-width: 100%;
+                height: auto;
+                max-height: none;
+            }
+            
+            .force-card {
+                min-width: calc(50% - 8px);
+            }
+            
+            .container {
+                flex-direction: column;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .force-card {
+                min-width: 100%;
+            }
+            
+            .test-buttons {
+                position: relative;
+                justify-content: center;
+                margin-bottom: 10px;
+            }
+            
+            .sub-frame {
+                padding: 10px;
+            }
+        }
+        
+        /* Equal height for diagram containers */
+        .diagram-box {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .canvas-container {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-buttons">
+        <button class="test-btn" onclick="testCase1()">Simply Supported</button>
+        <button class="test-btn" onclick="testCase2()">Cantilever</button>
+        <button class="test-btn" onclick="testCase3()">UDL</button>
+    </div>
+    
+    <div class="container">
+        <!-- Left Panel - Beam Properties -->
+        <div class="left-panel">
+            <div class="sub-frame">
+                <h3>📐 Beam Properties</h3>
+                <div class="input-group">
+                    <label>Beam Length (m):</label>
+                    <input type="number" id="beamLength" value="6" step="100">
+                </div>
+                <div class="input-group">
+                    <label>Beam Type:</label>
+                    <select id="beamType">
+                        <option value="Square Bar">Square Bar (50x50mm)</option>
+                        <option value="I-Beam">I-Beam (200x100mm)</option>
+                        <option value="Channel">Channel (150x75mm)</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Material:</label>
+                    <select id="material">
+                        <option value="Steel">Structural Steel (E=200 GPa)</option>
+                        <option value="Aluminum">Aluminum (E=69 GPa)</option>
+                        <option value="Stainless">Stainless Steel (E=193 GPa)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Supports Section -->
+            <div class="sub-frame">
+                <h3>🔧 Supports</h3>
+                <div class="table-wrapper">
+                    <table class="data-table" id="supportsTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 25%">Label</th>
+                                <th style="width: 25%">Type</th>
+                                <th style="width: 25%">Position (m)</th>
+                                <th style="width: 25%">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="supportsBody"></tbody>
+                    </table>
+                </div>
+                <button class="btn btn-primary add-row-btn" onclick="addSupportRow()">+ Add Support</button>
+            </div>
+            
+            <div class="sub-frame">
+                <h3>⚡ Loads</h3>
+                <table class="data-table" id="loadsTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 20%">Label</th>
+                            <th style="width: 20%">Type</th>
+                            <th style="width: 15%">Magnitude</th>
+                            <th style="width: 15%">Position/Length</th>
+                            <th style="width: 15%">Direction</th>
+                            <th style="width: 15%">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="loadsBody"></tbody>
+                </table>
+                <button class="btn btn-primary add-row-btn" onclick="addLoadRow()">+ Add Load</button>
+                <div class="info-text" style="margin-top: 5px;">💡 Positive = downward</div>
+            </div>
+        </div>
+        
+        <!-- Center Panel - Analysis Results -->
+        <div class="center-panel">
+            <div class="sub-frame" style="padding: 10px;">
+                <h3>📊 Free Body Diagrams</h3>
+                <div class="diagrams-horizontal">
+                    <div class="diagram-box">
+                        <h4>2D Free Body Diagram</h4>
+                        <div class="canvas-container">
+                            <canvas id="freeBodyCanvas"></canvas>
+                        </div>
+                        <div class="info-text">Click to add point load</div>
+                    </div>
+                    <div class="diagram-box">
+                        <h4>3D Free Body Diagram</h4>
+                        <div class="canvas-container">
+                            <div id="canvas3d" style="width: 100%; height: 100%; position: relative;">
+                                <div class="status-badge" id="threeStatus">Initializing...</div>
+                            </div>
+                        </div>
+                        <div class="info-text">Drag to rotate | Scroll to zoom</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sub-frame" style="padding: 10px;">
+                <h3>📈 Member Forces Summary</h3>
+                <div class="forces-horizontal" id="memberForcesSummary">
+                    <div class="force-card">
+                        <h4>Axial Force</h4>
+                        <div class="value">0 <span class="unit">kN</span></div>
+                    </div>
+                    <div class="force-card">
+                        <h4>Shear (Major)</h4>
+                        <div class="value">0 <span class="unit">kN</span></div>
+                    </div>
+                    <div class="force-card">
+                        <h4>Shear (Minor)</h4>
+                        <div class="value">0 <span class="unit">kN</span></div>
+                    </div>
+                    <div class="force-card">
+                        <h4>Torsion</h4>
+                        <div class="value">0 <span class="unit">kN·m</span></div>
+                    </div>
+                    <div class="force-card">
+                        <h4>Moment (Major)</h4>
+                        <div class="value">0 <span class="unit">kN·m</span></div>
+                    </div>
+                    <div class="force-card">
+                        <h4>Moment (Minor)</h4>
+                        <div class="value">0 <span class="unit">kN·m</span></div>
+                    </div>
+                    <div class="force-card">
+                        <h4>Max Deflection</h4>
+                        <div class="value">0 <span class="unit">mm</span></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="diagrams-horizontal-3">
+                <div class="diagram-container">
+                    <h3>✂️ Shear Force Diagram</h3>
+                    <div id="shearDiagram"></div>
+                </div>
+                <div class="diagram-container">
+                    <h3>📐 Bending Moment Diagram</h3>
+                    <div id="momentDiagram"></div>
+                </div>
+                <div class="diagram-container">
+                    <h3>📉 Deflection Diagram</h3>
+                    <div id="deflectionDiagram"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Panel - Member Check (Placeholder) -->
+        <div class="right-panel">
+            <div class="sub-frame">
+                <h3>🔍 Member Check</h3>
+                <div class="placeholder">
+                    <h4>Member Capacity Check</h4>
+                    <p>Coming Soon...</p>
+                    <p style="margin-top: 8px;">This section will include:</p>
+                    <ul>
+                        <li>Section classification</li>
+                        <li>Shear capacity check</li>
+                        <li>Moment capacity check</li>
+                        <li>Deflection limit check</li>
+                        <li>Combined actions check</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Import 3D Module -->
+    <script type="module" src="/static/threeViewer.js"></script>
+    
+    <script type="text/javascript">
+        let supports = [
+            {id: 1, type: 'pinned', position: 0},
+            {id: 2, type: 'roller', position: 6}
+        ];
+        let loads = [];
+        let nextSupportId = 3;
+        let nextLoadId = 1;
+        let updateTimeout = null;
+        let currentReactions = [];
+        
+        // Function to resize canvas to match container
+        function resizeCanvas() {
+            const canvas = document.getElementById('freeBodyCanvas');
+            const container = canvas.parentElement;
+            if (container) {
+                const rect = container.getBoundingClientRect();
+                canvas.width = rect.width;
+                canvas.height = rect.height;
+                updateFreeBodyDiagram();
+            }
+        }
+        
+        // Resize observer for canvas
+        const resizeObserver = new ResizeObserver(() => {
+            resizeCanvas();
+        });
+        
+        function updateFreeBodyDiagram() {
+            const canvas = document.getElementById('freeBodyCanvas');
+            const ctx = canvas.getContext('2d');
+            const beamLength = parseFloat(document.getElementById('beamLength').value);
+            
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            if (width === 0 || height === 0) return;
+            
+            ctx.clearRect(0, 0, width, height);
+            
+            const startX = width * 0.1;
+            const endX = width - width * 0.1;
+            const beamY = height / 2;
+            const beamWidth = endX - startX;
+            
+            // Draw beam
+            ctx.beginPath();
+            ctx.moveTo(startX, beamY);
+            ctx.lineTo(endX, beamY);
+            ctx.lineWidth = Math.max(2, width / 150);
+            ctx.strokeStyle = '#495057';
+            ctx.stroke();
+            
+            // Draw beam ends
+            ctx.fillStyle = '#6c757d';
+            ctx.fillRect(startX - 5, beamY - 4, 4, 8);
+            ctx.fillRect(endX, beamY - 4, 4, 8);
+            
+            // Draw supports
+            supports.forEach(support => {
+                const x = startX + (support.position / beamLength) * beamWidth;
+                const scale = Math.min(1, width / 400);
+                const triSize = 8 * scale;
+                const circleSize = 3 * scale;
+                
+                if (support.type === 'pinned') {
+                    ctx.beginPath();
+                    ctx.moveTo(x - triSize, beamY);
+                    ctx.lineTo(x, beamY + triSize * 2);
+                    ctx.lineTo(x + triSize, beamY);
+                    ctx.fillStyle = '#dc3545';
+                    ctx.fill();
+                    
+                    ctx.beginPath();
+                    ctx.arc(x, beamY + triSize * 2.5, circleSize, 0, Math.PI * 2);
+                    ctx.fillStyle = '#dc3545';
+                    ctx.fill();
+                    ctx.fillStyle = 'white';
+                    ctx.beginPath();
+                    ctx.arc(x, beamY + triSize * 2.5, circleSize * 0.6, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    const reaction = currentReactions.find(r => Math.abs(r.position - support.position) < 1);
+                    if (reaction && reaction.Fy !== 0) {
+                        ctx.fillStyle = '#dc3545';
+                        ctx.font = `${Math.max(8, width / 50)}px Arial`;
+                        ctx.fillText(`${reaction.Fy} kN`, x - 15 * scale, beamY - 12);
+                    }
+                } 
+                else if (support.type === 'roller') {
+                    ctx.beginPath();
+                    ctx.moveTo(x - triSize, beamY);
+                    ctx.lineTo(x, beamY + triSize * 2);
+                    ctx.lineTo(x + triSize, beamY);
+                    ctx.fillStyle = '#28a745';
+                    ctx.fill();
+                    
+                    ctx.beginPath();
+                    ctx.arc(x - triSize * 0.6, beamY + triSize * 2.8, circleSize * 0.8, 0, Math.PI * 2);
+                    ctx.fillStyle = '#28a745';
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(x + triSize * 0.6, beamY + triSize * 2.8, circleSize * 0.8, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    const reaction = currentReactions.find(r => Math.abs(r.position - support.position) < 1);
+                    if (reaction && reaction.Fy !== 0) {
+                        ctx.fillStyle = '#28a745';
+                        ctx.font = `${Math.max(8, width / 50)}px Arial`;
+                        ctx.fillText(`${reaction.Fy} kN`, x - 15 * scale, beamY - 12);
+                    }
+                } 
+                else if (support.type === 'fixed') {
+                    ctx.fillStyle = '#ffc107';
+                    ctx.fillRect(x - 10 * scale, beamY - 10 * scale, 20 * scale, 20 * scale);
+                    for (let i = -6 * scale; i <= 6 * scale; i += 4 * scale) {
+                        ctx.fillRect(x + i, beamY - 6 * scale, 2 * scale, 12 * scale);
+                    }
+                    
+                    const reaction = currentReactions.find(r => Math.abs(r.position - support.position) < 1);
+                    if (reaction) {
+                        ctx.fillStyle = '#ffc107';
+                        ctx.font = `${Math.max(7, width / 60)}px Arial`;
+                        if (reaction.Fy !== 0) ctx.fillText(`${reaction.Fy} kN`, x - 16 * scale, beamY - 12);
+                        if (reaction.Mz !== 0) ctx.fillText(`${reaction.Mz} kN·m`, x - 16 * scale, beamY - 22);
+                    }
+                }
+            });
+            
+            // Draw loads (simplified for responsiveness)
+            loads.forEach(load => {
+                const x = startX + (load.position / beamLength) * beamWidth;
+                const magnitude = load.magnitude;
+                const isDownward = magnitude > 0;
+                const absMagnitude = Math.abs(magnitude);
+                
+                if (load.type === 'point load' && load.direction === 'vertical') {
+                    const arrowY = isDownward ? beamY + 25 : beamY - 30;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(x, beamY);
+                    ctx.lineTo(x, arrowY);
+                    ctx.strokeStyle = '#007bff';
+                    ctx.stroke();
+                    
+                    ctx.beginPath();
+                    if (isDownward) {
+                        ctx.moveTo(x - 4, arrowY - 4);
+                        ctx.lineTo(x, arrowY);
+                        ctx.lineTo(x + 4, arrowY - 4);
+                    } else {
+                        ctx.moveTo(x - 4, arrowY + 4);
+                        ctx.lineTo(x, arrowY);
+                        ctx.lineTo(x + 4, arrowY + 4);
+                    }
+                    ctx.fillStyle = '#007bff';
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#007bff';
+                    ctx.font = `${Math.max(8, width / 55)}px Arial`;
+                    ctx.fillText(`${absMagnitude} kN`, x + 6, arrowY);
+                }
+                else if (load.type === 'uniform distributed load' && load.direction === 'vertical') {
+                    const endPos = load.endPosition || (load.position + load.length);
+                    const endX_load = startX + (endPos / beamLength) * beamWidth;
+                    const height = 18;
+                    
+                    ctx.fillStyle = `rgba(0, 123, 255, 0.2)`;
+                    if (isDownward) {
+                        ctx.fillRect(x, beamY - height, endX_load - x, height);
+                    } else {
+                        ctx.fillRect(x, beamY, endX_load - x, height);
+                    }
+                    
+                    for (let i = 0; i <= 6; i++) {
+                        const arrowX = x + (endX_load - x) * i / 6;
+                        ctx.beginPath();
+                        if (isDownward) {
+                            ctx.moveTo(arrowX, beamY - height);
+                            ctx.lineTo(arrowX, beamY);
+                            ctx.stroke();
+                            ctx.beginPath();
+                            ctx.moveTo(arrowX - 2, beamY - 2);
+                            ctx.lineTo(arrowX, beamY);
+                            ctx.lineTo(arrowX + 2, beamY - 2);
+                            ctx.fillStyle = '#007bff';
+                            ctx.fill();
+                        } else {
+                            ctx.moveTo(arrowX, beamY + height);
+                            ctx.lineTo(arrowX, beamY);
+                            ctx.stroke();
+                            ctx.beginPath();
+                            ctx.moveTo(arrowX - 2, beamY + 2);
+                            ctx.lineTo(arrowX, beamY);
+                            ctx.lineTo(arrowX + 2, beamY + 2);
+                            ctx.fill();
+                        }
+                    }
+                    
+                    ctx.fillStyle = '#007bff';
+                    ctx.font = `${Math.max(8, width / 60)}px Arial`;
+                    const textY = isDownward ? beamY - height - 2 : beamY + height + 10;
+                    ctx.fillText(`${absMagnitude} kN/m`, x + (endX_load - x)/2 - 20, textY);
+                }
+                else if (load.type === 'moment') {
+                    const radius = 14;
+                    ctx.beginPath();
+                    ctx.arc(x, beamY - 14, radius, Math.PI * 0.5, Math.PI * 1.5, false);
+                    ctx.strokeStyle = '#ff6b6b';
+                    ctx.stroke();
+                    
+                    const angle = Math.PI * 1.5;
+                    const arrowX = x + radius * Math.cos(angle);
+                    const arrowY = beamY - 14 + radius * Math.sin(angle);
+                    ctx.beginPath();
+                    ctx.moveTo(arrowX, arrowY);
+                    ctx.lineTo(arrowX - 4, arrowY - 2);
+                    ctx.lineTo(arrowX - 4, arrowY + 2);
+                    ctx.fillStyle = '#ff6b6b';
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#ff6b6b';
+                    ctx.font = `${Math.max(8, width / 55)}px Arial`;
+                    ctx.fillText(`${absMagnitude} kN·m`, x + 8, beamY - 28);
+                }
+            });
+        }
+        
+        // Add resize observer for canvas
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+        });
+        
+        function addSupportRow() {
+            const beamLength = parseFloat(document.getElementById('beamLength').value);
+            supports.push({
+                id: nextSupportId++,
+                type: 'pinned',
+                position: beamLength / 2
+            });
+            updateSupportsTable();
+            updateFreeBodyDiagram();
+            scheduleCalculation();
+        }
+        
+        function updateSupportsTable() {
+            const tbody = document.getElementById('supportsBody');
+            tbody.innerHTML = '';
+            supports.sort((a, b) => a.position - b.position);
+            
+            supports.forEach((support, index) => {
+                const row = tbody.insertRow();
+                row.insertCell(0).innerHTML = index + 1;
+                row.insertCell(1).innerHTML = `
+                    <select onchange="updateSupport(${support.id}, 'type', this.value)" style="width: 70px;">
+                        <option value="pinned" ${support.type === 'pinned' ? 'selected' : ''}>Pinned</option>
+                        <option value="roller" ${support.type === 'roller' ? 'selected' : ''}>Roller</option>
+                        <option value="fixed" ${support.type === 'fixed' ? 'selected' : ''}>Fixed</option>
+                    </select>
+                `;
+                row.insertCell(2).innerHTML = `
+                    <input type="number" value="${support.position}" 
+                           onchange="updateSupport(${support.id}, 'position', this.value)" style="width: 70px;">
+                `;
+                row.insertCell(3).innerHTML = `
+                    <button class="btn btn-danger" onclick="deleteSupport(${support.id})" style="padding: 2px 6px;">Del</button>
+                `;
+            });
+        }
+        
+        function updateSupport(id, field, value) {
+            const support = supports.find(s => s.id === id);
+            if (support) {
+                if (field === 'position') {
+                    let newPos = parseFloat(value);
+                    const beamLength = parseFloat(document.getElementById('beamLength').value);
+                    newPos = Math.max(0, Math.min(beamLength, newPos));
+                    support.position = newPos;
+                } else {
+                    support[field] = value;
+                }
+                updateSupportsTable();
+                updateFreeBodyDiagram();
+                scheduleCalculation();
+            }
+        }
+        
+        function deleteSupport(id) {
+            if (supports.length <= 1) {
+                alert("At least one support is required!");
+                return;
+            }
+            supports = supports.filter(s => s.id !== id);
+            updateSupportsTable();
+            updateFreeBodyDiagram();
+            scheduleCalculation();
+        }
+        
+        function addLoadRow() {
+            const beamLength = parseFloat(document.getElementById('beamLength').value);
+            loads.push({
+                id: nextLoadId++,
+                label: `L${nextLoadId}`,
+                type: 'point load',
+                magnitude: 10,
+                position: beamLength / 2,
+                direction: 'vertical',
+                length: 1000
+            });
+            updateLoadsTable();
+            updateFreeBodyDiagram();
+            scheduleCalculation();
+        }
+        
+        function updateLoadsTable() {
+            const tbody = document.getElementById('loadsBody');
+            tbody.innerHTML = '';
+            
+            loads.forEach((load) => {
+                const row = tbody.insertRow();
+                row.insertCell(0).innerHTML = load.label;
+                row.insertCell(1).innerHTML = `
+                    <select onchange="updateLoad(${load.id}, 'type', this.value)" style="width: 70px;">
+                        <option value="point load" ${load.type === 'point load' ? 'selected' : ''}>Point</option>
+                        <option value="uniform distributed load" ${load.type === 'uniform distributed load' ? 'selected' : ''}>UDL</option>
+                        <option value="moment" ${load.type === 'moment' ? 'selected' : ''}>Moment</option>
+                    </select>
+                `;
+                row.insertCell(2).innerHTML = `
+                    <input type="number" value="${load.magnitude}" step="1"
+                           onchange="updateLoad(${load.id}, 'magnitude', this.value)" style="width: 55px;">
+                `;
+                
+                if (load.type === 'uniform distributed load') {
+                    row.insertCell(3).innerHTML = `
+                        <input type="number" value="${load.position}" style="width: 50px;" 
+                               onchange="updateLoad(${load.id}, 'position', this.value)">
+                        <input type="number" value="${load.length || 1000}" style="width: 50px;"
+                               onchange="updateLoad(${load.id}, 'length', this.value)">
+                    `;
+                } else {
+                    row.insertCell(3).innerHTML = `
+                        <input type="number" value="${load.position}" 
+                               onchange="updateLoad(${load.id}, 'position', this.value)" style="width: 65px;">
+                    `;
+                }
+                
+                row.insertCell(4).innerHTML = `
+                    <select onchange="updateLoad(${load.id}, 'direction', this.value)" style="width: 55px;">
+                        <option value="vertical" ${load.direction === 'vertical' ? 'selected' : ''}>Vert</option>
+                        <option value="axial" ${load.direction === 'axial' ? 'selected' : ''}>Axial</option>
+                    </select>
+                `;
+                
+                row.insertCell(5).innerHTML = `
+                    <button class="btn btn-danger" onclick="deleteLoad(${load.id})" style="padding: 2px 6px;">Del</button>
+                `;
+            });
+        }
+        
+        function updateLoad(id, field, value) {
+            const load = loads.find(l => l.id === id);
+            if (load) {
+                if (field === 'magnitude') {
+                    load.magnitude = parseFloat(value);
+                } else if (field === 'position') {
+                    load.position = parseFloat(value);
+                } else if (field === 'length') {
+                    load.length = parseFloat(value);
+                    load.endPosition = load.position + load.length;
+                } else {
+                    load[field] = value;
+                }
+                
+                if (load.type === 'uniform distributed load' && !load.endPosition) {
+                    load.endPosition = load.position + (load.length || 1000);
+                }
+                
+                updateLoadsTable();
+                updateFreeBodyDiagram();
+                scheduleCalculation();
+            }
+        }
+        
+        function deleteLoad(id) {
+            loads = loads.filter(l => l.id !== id);
+            updateLoadsTable();
+            updateFreeBodyDiagram();
+            scheduleCalculation();
+        }
+        
+        function scheduleCalculation() {
+            if (updateTimeout) clearTimeout(updateTimeout);
+            updateTimeout = setTimeout(calculateResults, 300);
+        }
+        
+        async function calculateResults() {
+            const beamLength = parseFloat(document.getElementById('beamLength').value);
+            const beamType = document.getElementById('beamType').value;
+            const material = document.getElementById('material').value;
+            
+            const data = {
+                beam_length: beamLength,
+                beam_type: beamType,
+                material: material,
+                supports: supports.map(s => ({
+                    position: s.position,
+                    type: s.type
+                })),
+                loads: loads.map(l => ({
+                    type: l.type,
+                    magnitude: l.magnitude,
+                    position: l.position,
+                    direction: l.direction || 'vertical',
+                    length: l.length || 0
+                }))
+            };
+            
+            try {
+                const response = await fetch('/calculate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentReactions = result.reactions;
+                    updateMemberForces(result.member_forces);
+                    plotDiagrams(result);
+                    updateFreeBodyDiagram();
+                    
+                    if (window.update3DModel) {
+                        window.update3DModel(beamLength, supports, loads, result.reactions, beamType);
+                    }
+                    
+                    document.querySelectorAll('.force-card, .diagram-container').forEach(el => {
+                        el.classList.add('update-animation');
+                        setTimeout(() => el.classList.remove('update-animation'), 300);
+                    });
+                } else {
+                    console.error('Calculation error:', result.error);
+                }
+            } catch (error) {
+                console.error('Request error:', error);
+            }
+        }
+        
+        function updateMemberForces(forces) {
+            const container = document.getElementById('memberForcesSummary');
+            container.innerHTML = `
+                <div class="force-card">
+                    <h4>Axial Force</h4>
+                    <div class="value">${forces.axial_force} <span class="unit">kN</span></div>
+                </div>
+                <div class="force-card">
+                    <h4>Shear (Major)</h4>
+                    <div class="value">${forces.shear_major} <span class="unit">kN</span></div>
+                </div>
+                <div class="force-card">
+                    <h4>Shear (Minor)</h4>
+                    <div class="value">0 <span class="unit">kN</span></div>
+                </div>
+                <div class="force-card">
+                    <h4>Torsion</h4>
+                    <div class="value">0 <span class="unit">kN·m</span></div>
+                </div>
+                <div class="force-card">
+                    <h4>Moment (Major)</h4>
+                    <div class="value">${forces.bending_major} <span class="unit">kN·m</span></div>
+                </div>
+                <div class="force-card">
+                    <h4>Moment (Minor)</h4>
+                    <div class="value">0 <span class="unit">kN·m</span></div>
+                </div>
+                <div class="force-card">
+                    <h4>Max Deflection</h4>
+                    <div class="value">${forces.max_deflection} <span class="unit">mm</span></div>
+                </div>
+            `;
+        }
+        
+        function plotDiagrams(result) {
+            const responsiveLayout = {
+                margin: { l: 40, r: 20, t: 30, b: 35 },
+                showlegend: false,
+                hovermode: 'closest',
+                plot_bgcolor: '#ffffff',
+                paper_bgcolor: '#ffffff',
+                font: { size: 10 },
+                autosize: true,
+                responsive: true,
+                height: 200,
+                xaxis: { title: { text: 'Position (m)', font: { size: 10 } }, gridcolor: '#e9ecef' },
+                yaxis: { title: { font: { size: 10 } }, gridcolor: '#e9ecef' }
+            };
+            
+            Plotly.newPlot('shearDiagram', [{
+                x: result.shear_diagram.x,
+                y: result.shear_diagram.y,
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: '#dc3545', width: 2 },
+                fill: 'tozeroy',
+                fillcolor: 'rgba(220, 53, 69, 0.1)'
+            }], { 
+                ...responsiveLayout, 
+                title: { text: 'Shear Force Diagram', font: { size: 12 } }, 
+                yaxis: { ...responsiveLayout.yaxis, title: { text: 'Shear (kN)', font: { size: 10 } } }
+            }, { responsive: true });
+            
+            Plotly.newPlot('momentDiagram', [{
+                x: result.moment_diagram.x,
+                y: result.moment_diagram.y,
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: '#28a745', width: 2 },
+                fill: 'tozeroy',
+                fillcolor: 'rgba(40, 167, 69, 0.1)'
+            }], { 
+                ...responsiveLayout, 
+                title: { text: 'Bending Moment Diagram', font: { size: 12 } }, 
+                yaxis: { ...responsiveLayout.yaxis, title: { text: 'Moment (kN·m)', font: { size: 10 } } }
+            }, { responsive: true });
+            
+            Plotly.newPlot('deflectionDiagram', [{
+                x: result.deflection_diagram.x,
+                y: result.deflection_diagram.y,
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: '#007bff', width: 2 },
+                fill: 'tozeroy',
+                fillcolor: 'rgba(0, 123, 255, 0.1)'
+            }], { 
+                ...responsiveLayout, 
+                title: { text: `Deflection (Max: ${result.max_deflection.toFixed(2)} mm)`, font: { size: 12 } }, 
+                yaxis: { ...responsiveLayout.yaxis, title: { text: 'Deflection (mm)', font: { size: 10 } } }
+            }, { responsive: true });
+        }
+        
+        function testCase1() {
+            document.getElementById('beamLength').value = 6;
+            supports = [
+                {id: 1, type: 'pinned', position: 0},
+                {id: 2, type: 'roller', position: 6}
+            ];
+            loads = [{
+                id: 1,
+                label: 'L1',
+                type: 'point load',
+                magnitude: 10,
+                position: 3000,
+                direction: 'vertical'
+            }];
+            nextSupportId = 3;
+            nextLoadId = 2;
+            updateSupportsTable();
+            updateLoadsTable();
+            updateFreeBodyDiagram();
+            scheduleCalculation();
+        }
+        
+        function testCase2() {
+            document.getElementById('beamLength').value = 4000;
+            supports = [
+                {id: 1, type: 'fixed', position: 0}
+            ];
+            loads = [{
+                id: 1,
+                label: 'L1',
+                type: 'point load',
+                magnitude: 10,
+                position: 4000,
+                direction: 'vertical'
+            }];
+            nextSupportId = 2;
+            nextLoadId = 2;
+            updateSupportsTable();
+            updateLoadsTable();
+            updateFreeBodyDiagram();
+            scheduleCalculation();
+        }
+        
+        function testCase3() {
+            document.getElementById('beamLength').value = 6;
+            supports = [
+                {id: 1, type: 'pinned', position: 0},
+                {id: 2, type: 'roller', position: 6}
+            ];
+            loads = [{
+                id: 1,
+                label: 'L1',
+                type: 'uniform distributed load',
+                magnitude: 5,
+                position: 0,
+                length: 6,
+                direction: 'vertical'
+            }];
+            nextSupportId = 3;
+            nextLoadId = 2;
+            updateSupportsTable();
+            updateLoadsTable();
+            updateFreeBodyDiagram();
+            scheduleCalculation();
+        }
+        
+        document.getElementById('beamLength').addEventListener('change', () => {
+            updateFreeBodyDiagram();
+            scheduleCalculation();
+        });
+        
+        document.getElementById('material').addEventListener('change', scheduleCalculation);
+        document.getElementById('beamType').addEventListener('change', scheduleCalculation);
+        
+        document.getElementById('freeBodyCanvas').addEventListener('click', (e) => {
+            const canvas = e.target;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const beamLength = parseFloat(document.getElementById('beamLength').value);
+            const startX = canvas.width * 0.1;
+            const endX = canvas.width - canvas.width * 0.1;
+            const beamWidth = endX - startX;
+            
+            if (x >= startX && x <= endX) {
+                const position = ((x - startX) / beamWidth) * beamLength;
+                const magnitude = prompt('Enter point load magnitude (kN):\n(Positive = downward, Negative = upward)', '10');
+                if (magnitude !== null && !isNaN(parseFloat(magnitude))) {
+                    loads.push({
+                        id: nextLoadId++,
+                        label: `L${nextLoadId}`,
+                        type: 'point load',
+                        magnitude: parseFloat(magnitude),
+                        position: position,
+                        direction: 'vertical'
+                    });
+                    updateLoadsTable();
+                    updateFreeBodyDiagram();
+                    scheduleCalculation();
+                }
+            }
+        });
+        
+        // Initialize canvas
+        setTimeout(() => {
+            resizeCanvas();
+            const canvasContainer = document.querySelector('#freeBodyCanvas').parentElement;
+            if (canvasContainer) {
+                resizeObserver.observe(canvasContainer);
+            }
+        }, 100);
+        
+        updateSupportsTable();
+        updateLoadsTable();
+        updateFreeBodyDiagram();
+        scheduleCalculation();
+        
+        setInterval(() => {
+            updateFreeBodyDiagram();
+        }, 100);
+    </script>
+</body>
+</html>

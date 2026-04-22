@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Steel Beam Calculator - Advanced Structural Analysis</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <button id="exportPdfBtn" class="export-pdf-btn" onclick="exportReportAsPDF()">Export Report as PDF</button>
+
+    <div class="test-buttons">
+        <button class="test-btn" onclick="testCase1()">Simply Supported</button>
+        <button class="test-btn" onclick="testCase2()">Cantilever</button>
+        <button class="test-btn" onclick="testCase3()">UDL</button>
+    </div>
+    
+    <div class="container">
+        <!-- Left Panel - Beam Properties -->
+        <div class="left-panel">
+            <!-- Beam Properties Frame -->
+            <div class="sub-frame">
+                <h3>Beam Section Properties</h3>
+                
+                <div class="input-group">
+                    <label>Section Standard:</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="standard" value="BS" checked> BS Standard</label>
+                        <label><input type="radio" name="standard" value="GB"> GB Standard</label>
+                        <label><input type="radio" name="standard" value="Customized"> Customized</label>
+                    </div>
+                </div>
+                
+                <!-- Horizontal select bars -->
+                <div class="horizontal-select-group">
+                    <div class="horizontal-select-item" id="beamTypeGroup">
+                        <label>Beam Type:</label>
+                        <select id="beamType" disabled>
+                            <option value="">Select Standard first</option>
+                        </select>
+                    </div>
+                    <div class="horizontal-select-item" id="designationGroup">
+                        <label>Designation:</label>
+                        <select id="designation" disabled>
+                            <option value="">Select Beam Type first</option>
+                        </select>
+                    </div>
+                    <div class="horizontal-select-item">
+                        <label>Steel Grade:</label>
+                        <select id="steelGrade">
+                            <option value="235">(BS) S235</option>
+                            <option value="275" selected>(BS) S275</option>
+                            <option value="355">(BS) S355</option>
+                            <option value="420">(BS) S420</option>
+                            <option value="460">(BS) S460</option>
+                            <option value="215">(GB) Q235</option>
+                            <option value="310">(GB) Q345</option>
+                            <option value="350">(GB) Q390</option>
+                            <option value="380">(GB) Q420</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Section Properties Display -->
+                <div id="sectionPropsGroup" style="display: block;">
+                    <div style="display: flex; gap: 10px;">
+                        <div class="section-props" id="sectionProps" style="flex: 1;">
+                            <p><strong>Section Properties:</strong></p>
+                            <p>Select a designation to view properties</p>
+                        </div>
+                        <div style="flex: 0 0 320px; display: flex; align-items: center; justify-content: center; background: #fff; border: 1px solid #dee2e6; border-radius: 4px;">
+                            <canvas id="sectionShapeCanvas" width="320" height="250"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Beam Properties Frame - New frame with Beam Length and Beam Purpose -->
+            <div class="sub-frame">
+                <h3>Beam Properties</h3>
+                <div class="beam-properties2">
+                    <div class="input-group">
+                        <label>Beam Length (m):</label>
+                        <input type="number" id="beamLength" value="6" step="0.5">
+                    </div>
+                    <div class="input-group">
+                        <label>Beam Purpose:</label>
+                        <select id="beamPurpose">
+                            <option value="general" selected>For General Use</option>
+                            <option value="crane">For Crane Use</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Supports Section -->
+            <div class="sub-frame">
+                <h3>Supports</h3>
+                <div class="table-wrapper">
+                    <table class="data-table" id="supportsTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 15%">Label</th>
+                                <th style="width: 35%">Type</th>
+                                <th style="width: 30%">Position (m)</th>
+                                <th style="width: 20%"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="supportsBody"></tbody>
+                    </table>
+                </div>
+                <button class="btn btn-primary add-row-btn" onclick="addSupportRow()">+ Add Support</button>
+            </div>
+            
+            <div class="sub-frame">
+                <h3>Loads</h3>
+                <table class="data-table" id="loadsTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 14% align=center">Label</th>
+                            <th style="width: 20% align=center">Type</th>
+                            <th style="width: 23% align=center">Mag'(kN)</th>
+                            <th style="width: 19% align=center">Pos'(m)</th>
+                            <th id="loadLengthHeader" style="width: 12% align=center; display: none;">L(m)</th>
+                            <th style="width: 11% align=center">Dir'</th>
+                            <th style="width: 11%"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="loadsBody"></tbody>
+                </table>
+                <button class="btn btn-primary add-row-btn" onclick="addLoadRow()">+ Add Load</button>
+                <div class="info-text" style="margin-top: 5px;">💡 Positive = downward</div>
+            </div>
+        </div>
+        
+        <!-- Center Panel - Analysis Results -->
+        <div class="center-panel">
+            <div class="sub-frame" style="padding: 10px;">
+                <h3>📊 Free Body Diagrams</h3>
+                <div class="diagrams-horizontal">
+                    <div class="diagram-box">
+                        <h4>2D Free Body Diagram</h4>
+                        <div class="canvas-container">
+                            <canvas id="freeBodyCanvas"></canvas>
+                        </div>
+                    </div>
+                    <div class="diagram-box">
+                        <h4>3D Free Body Diagram</h4>
+                        <div class="canvas-container">
+                            <div id="canvas3d" style="width: 100%; height: 100%; position: relative; background: white;">
+                                <div class="status-badge" id="threeStatus">Initializing...</div>
+                                <!-- Visualization controls -->
+                                <div style="position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.9); padding: 5px; border-radius: 3px; border: 1px solid #ccc; z-index: 100;">
+                                    <div style="font-size: 9px; font-weight: bold; margin-bottom: 3px;">FEA Contour:</div>
+                                    <button onclick="set3DVisualizationMode('none')" id="btn3dNone" class="btn btn-primary btn-sm" style="margin: 1px; padding: 2px 5px; font-size: 8px;">Off</button>
+                                    <button onclick="set3DVisualizationMode('moment')" id="btn3dMoment" class="btn btn-sm" style="margin: 1px; padding: 2px 5px; font-size: 8px;">Moment</button>
+                                    <button onclick="set3DVisualizationMode('shear')" id="btn3dShear" class="btn btn-sm" style="margin: 1px; padding: 2px 5px; font-size: 8px;">Shear</button>
+                                    <button onclick="set3DVisualizationMode('deflection')" id="btn3dDeflection" class="btn btn-sm" style="margin: 1px; padding: 2px 5px; font-size: 8px;">Deflection</button>
+                                </div>
+                                <!-- Color legend -->
+                                <div id="colorLegend" style="position: absolute; bottom: 10px; right: 10px; background: rgba(255,255,255,0.9); padding: 8px; border-radius: 4px; border: 1px solid #ccc; display: none; z-index: 100;">
+                                    <div style="font-size: 10px; font-weight: bold; margin-bottom: 5px;">Scale:</div>
+                                    <div style="display: flex; align-items: center; gap: 5px;">
+                                        <span style="font-size: 9px;" id="legendMin">-10</span>
+                                        <div style="width: 120px; height: 20px; background: linear-gradient(to right, #4444ff, #ffffff, #ff4444);"></div>
+                                        <span style="font-size: 9px;" id="legendMax">+10</span>
+                                    </div>
+                                    <div style="font-size: 9px; text-align: center; margin-top: 3px;" id="legendUnit">kN·m</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="info-text">Drag to rotate | Scroll to zoom</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sub-frame" style="padding: 10px;">
+                <h3>📈 Member Forces Summary</h3>
+                <div class="forces-horizontal" id="memberForcesSummary">
+                    <div class="force-card">
+                        <h4>Axial Force</h4>
+                        <div class="value">0 <span class="unit">kN</span></div>
+                    </div>
+                    <div class="force-card">
+                        <h4>Shear (Major)</h4>
+                        <div class="value">0 <span class="unit">kN</span></div>
+                    </div>
+                    <div class="force-card">
+                        <h4>Shear (Minor)</h4>
+                        <div class="value">0 <span class="unit">kN</span></div>
+                    </div>
+                    <div class="force-card">
+                        <h4>Torsion</h4>
+                        <div class="value">0 <span class="unit">kN·m</span></div>
+                    </div>
+                    <div class="force-card">
+                        <h4>Moment (Major)</h4>
+                        <div class="value">0 <span class="unit">kN·m</span></div>
+                    </div>
+                    <div class="force-card">
+                        <h4>Moment (Minor)</h4>
+                        <div class="value">0 <span class="unit">kN·m</span></div>
+                    </div>
+                    <div class="force-card">
+                        <h4>Max Deflection</h4>
+                        <div class="value">0 <span class="unit">mm</span></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="diagrams-horizontal-3">
+                <div class="diagram-container">
+                    <h3>📉 Shear Force Diagram (Major Axis - Vertical)</h3>
+                    <div id="shearDiagram" style="width: 100%; height: 250px;"></div>
+                </div>
+                <div class="diagram-container">
+                    <h3>📉 Bending Moment Diagram (Major Axis - Vertical)</h3>
+                    <div id="momentDiagram" style="width: 100%; height: 250px;"></div>
+                </div>
+                <div class="diagram-container">
+                    <h3>📉 Deflection Diagram (Vertical)</h3>
+                    <div id="deflectionDiagram" style="width: 100%; height: 250px;"></div>
+                </div>
+            </div>
+            
+            <div class="diagrams-horizontal-3">
+                <div class="diagram-container">
+                    <h3>📉 Shear Force Diagram (Minor Axis - Transverse)</h3>
+                    <div id="shearDiagramTransverse" style="width: 100%; height: 250px;"></div>
+                </div>
+                <div class="diagram-container">
+                    <h3>📉 Bending Moment Diagram (Minor Axis - Transverse)</h3>
+                    <div id="momentDiagramTransverse" style="width: 100%; height: 250px;"></div>
+                </div>
+                <div class="diagram-container">
+                    <h3>📉 Deflection Diagram (Transverse)</h3>
+                    <div id="deflectionDiagramTransverse" style="width: 100%; height: 250px;"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Panel - Member Check -->
+        <div class="right-panel">
+            <div class="sub-frame">
+                <h3>🔍 Member Check</h3>
+                
+                <!-- Design Code Selection -->
+                <div class="input-group">
+                    <label>Design Code:</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="designCode" value="HK" checked> C.O.P HK 2011</label>
+                        <label><input type="radio" name="designCode" value="BS"> BS 5950</label>
+                        <label><input type="radio" name="designCode" value="GB"> GB 50017</label>
+                    </div>
+                </div>
+                
+                <!-- SLS Section -->
+                <div class="check-section">
+                    <h4>📏 SLS (Serviceability Limit State)</h4>
+                    <table class="check-table" id="slsTable">
+                        <tr>
+                            <td>Vertical Deflection</td>
+                            <td id="verticalDeflectionUtil">-</td>
+                        </tr>
+                        <tr>
+                            <td>Horizontal Deflection</td>
+                            <td id="horizontalDeflectionUtil">-</td>
+                        </tr>
+                    </table>
+                    <div class="info-text" id="deflectionLimitInfo">Deflection limit (SLS): General = L/200 (no cantilever) or L/180 (with cantilever); Crane = L/600 (no cantilever) or L/250 (with cantilever).</div>
+                </div>
+                
+                <!-- ULS Section -->
+                <div class="check-section">
+                    <h4>⚡ ULS (Ultimate Limit State)</h4>
+                    <table class="check-table" id="ulsTable">
+                        <tr><td>Shear Capacity (Major)</td><td id="shearMajorUtil">-</td></tr>
+                        <tr><td>Shear Capacity (Minor)</td><td id="shearMinorUtil">-</td></tr>
+                        <tr><td>Moment Capacity (Major)</td><td id="momentMajorUtil">-</td></tr>
+                        <tr><td>Moment Capacity (Minor)</td><td id="momentMinorUtil">-</td></tr>
+                        <tr><td>Biaxial Moment Capacity</td><td id="biaxialMomentUtil">-</td></tr>
+                        <tr><td>Tension Capacity</td><td id="tensionUtil">-</td></tr>
+                        <tr><td>Compression Capacity</td><td id="compressionUtil">-</td></tr>
+                        <tr><td>Lateral Torsional Buckling</td><td id="ltbUtil">-</td></tr>
+                        <tr><td>Combined Tension + Biaxial Moment</td><td id="tensionBiaxialUtil">-</td></tr>
+                        <tr><td>Combined Tension + Buckling</td><td id="tensionBucklingUtil">-</td></tr>
+                        <tr><td>Combined Compression + Biaxial Moment</td><td id="compressionBiaxialUtil">-</td></tr>
+                        <tr><td>Combined Compression + Buckling</td><td id="compressionBucklingUtil">-</td></tr>
+                    </table>
+                </div>
+                
+                <!-- Utilization Bar Chart -->
+                <div class="chart-container">
+                    <h4 style="margin-bottom: 10px; font-size: 13px;">📊 Utilization Ratios</h4>
+                    <div id="utilizationChart"></div>
+                    <div class="util-summary" id="utilSummary">
+                        Max Utilization: <span id="maxUtilValue">0%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module" src="/static/js/threeViewer.js"></script>
+    <script type="text/javascript" src="/static/js/app.js"></script>
+</body>
+</html>
